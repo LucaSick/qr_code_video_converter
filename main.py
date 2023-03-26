@@ -74,10 +74,14 @@ def get_strings_from_video(video_name):
     result = set()
     while success:
         cv2.imwrite(f'{frames_folder}/frame{count}.png', image)
-        data = decode(Image.open(f'{frames_folder}/frame{str(count)}.png'))
-        result.add(data[0].data.decode("utf-8"))
+        img = cv2.imread(f'{frames_folder}/frame{count}.png')
+        qcd = cv2.QRCodeDetector()
+        retval, decoded_info, points, straight_qrcode = qcd.detectAndDecodeMulti(img)
+        if retval and decoded_info[0] != '':
+            result.add(decoded_info[0])
+            print(decoded_info)
+            count += 1
         success,image = vidcap.read()
-        count += 1
     
     filename = f'{video_name[:-3]}txt'
 
@@ -86,11 +90,6 @@ def get_strings_from_video(video_name):
     
     return filename
 
-
-# string_arr, video_name = create_video(FRAME_NUMBER, STRING_NUMBER, STRING_LENGTH)
-# result = get_strings_from_video(video_name)
-# # if True, then we got the same strings as we had in the beginning
-# assert result == set(string_arr)
 
 FRAME_NUMBER = 3 # number of frames for signle QR code
 
