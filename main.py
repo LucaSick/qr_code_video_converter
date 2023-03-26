@@ -1,38 +1,47 @@
-import random
-import string
 import pyqrcode
 import cv2
 import os
+import sys
 from PIL import Image
 from pyzbar.pyzbar import decode
 
-# generate random string
-def get_random_string(length):
-    letters = string.ascii_lowercase
-    result_str = ''.join(random.choice(letters) for i in range(length))
-    return result_str
 
-# creates video from QR codes, the codes are generated from random strings
+# creates video from QR codes, the codes are generated from input file strings
 # returns array of strings and video file name
-def create_video(frame_number, string_number, string_length):
+
+def create_video(file_name, frame_number):
     string_arr = []
     qr_arr = []
 
-    #generate strings
-    for i in range(string_number):
-        string_arr.append(get_random_string(string_length))
+    # get all words from file
+    with open(file_name, 'r') as file:
+        string_arr = file.read().splitlines()
+
+    image_folder = 'images'
+
+    # create folder or clear it
+    if not os.path.exists(image_folder):
+        os.makedirs(image_folder)
+    else:
+        for f in os.listdir(image_folder):
+            os.remove(os.path.join(image_folder, f))
 
     # generate QR codes from strings
     for string in string_arr:
         qr = pyqrcode.create(string)
         qr_arr.append(qr)
-        for j in range(frame_number):
-            qr.png('images/' + string + str(j) + '.png', scale=6)
+        qr.png(f'{image_folder}/{string}.png', scale=6)
     
-    image_folder = 'images'
-    video_name = 'video.avi'
+    
+    video_name = file_name[:-3] + 'avi'
 
-    images = [img for img in os.listdir(image_folder) if img.endswith(".png")] # arr of images
+    # create arr of images
+    images = []
+    for img in os.listdir(image_folder):
+        if img.endswith('.png'):
+            tmp = [img] * frame_number
+            images.extend(tmp)
+    
     frame = cv2.imread(os.path.join(image_folder, images[0])) # arr of frames
     height, width, _ = frame.shape
 
@@ -45,31 +54,54 @@ def create_video(frame_number, string_number, string_length):
     cv2.destroyAllWindows()
     video.release()
 
-    return string_arr, video_name
+    return video_name
 
 # from video get strings, from which the QR codes were generated
 # returns set of strings
 def get_strings_from_video(video_name):
+    frames_folder = 'frames'
+
+    # create folder or clear it
+    if not os.path.exists(frames_folder):
+        os.makedirs(frames_folder)
+    else:
+        for f in os.listdir(frames_folder):
+            os.remove(os.path.join(frames_folder, f))
+
     vidcap = cv2.VideoCapture(video_name)
     success,image = vidcap.read()
     count = 0
     result = set()
     while success:
-        cv2.imwrite('frames/frame%d.png' % count, image)
-        data = decode(Image.open('frames/frame' + str(count) + '.png'))
+        cv2.imwrite(f'{frames_folder}/frame{count}.png', image)
+        data = decode(Image.open(f'{frames_folder}/frame{str(count)}.png'))
         result.add(data[0].data.decode("utf-8"))
         success,image = vidcap.read()
         count += 1
     
-    return result
+    filename = f'{video_name[:-3]}txt'
+
+    file = open(filename, 'w+')
+    file.writelines(f'{line}\n' for line in list(result))
     
+    return filename
+
+
+# string_arr, video_name = create_video(FRAME_NUMBER, STRING_NUMBER, STRING_LENGTH)
+# result = get_strings_from_video(video_name)
+# # if True, then we got the same strings as we had in the beginning
+# assert result == set(string_arr)
 
 FRAME_NUMBER = 3 # number of frames for signle QR code
-STRING_NUMBER = 100 # number of string or QR codes
-STRING_LENGTH = 8 # length of strings
 
-string_arr, video_name = create_video(FRAME_NUMBER, STRING_NUMBER, STRING_LENGTH)
-result = get_strings_from_video(video_name)
-
-# if True, then we got the same strings as we had in the beginning
-assert result == set(string_arr)
+if __name__ == "__main__":
+    print('Start')
+    filename = sys.argv[1]
+    if filename.endswith('.txt'):
+        print('Transforming words into video')
+        video_name = create_video(filename, FRAME_NUMBER)
+        print(f'Created {video_name} video')
+    else:
+        print('Deciphering video into words')
+        file_name = get_strings_from_video(filename)
+        print(f'Words are written into {file_name}')
