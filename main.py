@@ -8,7 +8,7 @@ from pyzbar.pyzbar import decode
 
 # creates video from QR codes, the codes are generated from input file strings
 # returns array of strings and video file name
-
+# file should contain strings that are separated with \n
 def create_video(file_name, frame_number):
     string_arr = []
     qr_arr = []
